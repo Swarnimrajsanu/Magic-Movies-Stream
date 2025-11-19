@@ -67,3 +67,39 @@ func GetMovie(client *mongo.Client) gin.HandlerFunc {
 		c.JSON(http.StatusOK, movie)
 	}
 }
+func AddMovie(client *mongo.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		// FIX: Use request context
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 100*time.Second)
+		defer cancel()
+
+		var movie models.Movie
+
+		if err := c.ShouldBindJSON(&movie); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+			return
+		}
+
+		if err := validate.Struct(movie); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "Validation failed",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		movieCollection := database.OpenCollection("movies", client)
+
+		result, err := movieCollection.InsertOne(ctx, movie)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add movie"})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "Movie added successfully",
+			"id":      result.InsertedID,
+		})
+	}
+}
