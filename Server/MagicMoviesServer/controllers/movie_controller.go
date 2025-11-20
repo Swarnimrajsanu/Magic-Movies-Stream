@@ -13,11 +13,10 @@ import (
 	"github.com/Swarnimrajsanu/MagicMoviesStream/Server/MagicMoviesServer/database"
 	"github.com/Swarnimrajsanu/MagicMoviesStream/Server/MagicMoviesServer/models"
 	"github.com/Swarnimrajsanu/MagicMoviesStream/Server/MagicMoviesServer/utils"
+	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/tmc/langchaingo/llms/openai"
-
-	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -50,66 +49,61 @@ func GetMovies(client *mongo.Client) gin.HandlerFunc {
 
 	}
 }
+
 func GetMovie(client *mongo.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
-
-		// FIXED: Use request context, not Gin context
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 100*time.Second)
+		ctx, cancel := context.WithTimeout(c, 100*time.Second)
 		defer cancel()
 
 		movieID := c.Param("imdb_id")
+
 		if movieID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Movie ID is required"})
 			return
 		}
 
-		movieCollection := database.OpenCollection("movies", client)
+		var movieCollection *mongo.Collection = database.OpenCollection("movies", client)
 
 		var movie models.Movie
 
 		err := movieCollection.FindOne(ctx, bson.D{{Key: "imdb_id", Value: movieID}}).Decode(&movie)
+
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Movie not found"})
 			return
 		}
 
 		c.JSON(http.StatusOK, movie)
+
 	}
 }
+
 func AddMovie(client *mongo.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
-
-		// FIX: Use request context
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 100*time.Second)
+		ctx, cancel := context.WithTimeout(c, 100*time.Second)
 		defer cancel()
 
 		var movie models.Movie
-
 		if err := c.ShouldBindJSON(&movie); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 			return
 		}
 
 		if err := validate.Struct(movie); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error":   "Validation failed",
-				"details": err.Error(),
-			})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Validation failed", "details": err.Error()})
 			return
 		}
-
-		movieCollection := database.OpenCollection("movies", client)
+		var movieCollection *mongo.Collection = database.OpenCollection("movies", client)
 
 		result, err := movieCollection.InsertOne(ctx, movie)
+
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add movie"})
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{
-			"message": "Movie added successfully",
-			"id":      result.InsertedID,
-		})
+		c.JSON(http.StatusCreated, result)
+
 	}
 }
 
@@ -132,6 +126,7 @@ func AdminReviewUpdate(client *mongo.Client) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Movie Id required"})
 			return
 		}
+
 		var req struct {
 			AdminReview string `json:"admin_review"`
 		}
@@ -142,8 +137,9 @@ func AdminReviewUpdate(client *mongo.Client) gin.HandlerFunc {
 
 		if err := c.ShouldBind(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-			return
+			return // ← FIXED: Added return
 		}
+
 		sentiment, rankVal, err := GetReviewRanking(req.AdminReview, client, c)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting review ranking"})
@@ -161,10 +157,12 @@ func AdminReviewUpdate(client *mongo.Client) gin.HandlerFunc {
 				},
 			},
 		}
-		var ctx, cancel = context.WithTimeout(c, 100*time.Second)
+
+		// ← FIXED: Use c.Request.Context() instead of c
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 100*time.Second)
 		defer cancel()
 
-		var movieCollection *mongo.Collection = database.OpenCollection("movies", client)
+		movieCollection := database.OpenCollection("movies", client)
 
 		result, err := movieCollection.UpdateOne(ctx, filter, update)
 
@@ -177,11 +175,11 @@ func AdminReviewUpdate(client *mongo.Client) gin.HandlerFunc {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Movie not found"})
 			return
 		}
+
 		resp.RankingName = sentiment
 		resp.AdminReview = req.AdminReview
 
 		c.JSON(http.StatusOK, resp)
-
 	}
 }
 
