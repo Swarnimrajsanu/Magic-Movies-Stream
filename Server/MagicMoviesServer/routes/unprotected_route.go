@@ -1,0 +1,16 @@
+package routes
+
+import (
+	controller "github.com/Swarnimrajsanu/MagicMoviesStream/Server/MagicMoviesServer/controllers"
+	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+)
+
+func SetupUnProtectedRoutes(router *gin.Engine, client *mongo.Client) {
+
+	router.GET("/movies", controller.GetMovies(client))
+	router.POST("/register", controller.RegisterUser())
+	router.POST("/login", controller.LoginUser(client))
+	router.POST("/logout", controller.LogoutHandler(client))
+	router.POST("/refresh", controller.RefreshTokenHandler(client))
+}
