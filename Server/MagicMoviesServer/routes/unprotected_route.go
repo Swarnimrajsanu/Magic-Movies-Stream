@@ -13,5 +13,6 @@ func SetupUnProtectedRoutes(router *gin.Engine, client *mongo.Client) {
 	router.POST("/login", controller.LoginUser(client))
 	router.PATCH("/updatereview/:imdb_id", controller.AdminReviewUpdate(client))
 	router.POST("/logout", controller.LogoutHandler(client))
+	router.GET("/genres", controller.GetGenres(client))
 	router.POST("/refresh", controller.RefreshTokenHandler(client))
 }
