@@ -1,18 +1,22 @@
-import ReactPlayer from 'react-player';
-import { useParams } from 'react-router-dom';
-import './StreamMovie.css';
+import { useParams } from "react-router-dom";
+import "./StreamMovie.css";
 
 const StreamMovie = () => {
+  const { yt_id } = useParams();
 
-    let params = useParams();
-    let key = params.yt_id;
+  if (!yt_id) return <h2>Video not found</h2>;
 
   return (
-    <div className="react-player-container">
-      {(key!=null)?<ReactPlayer controls="true" playing={true} url ={`https://www.youtube.com/watch?v=${key}`} 
-      width = '100%' height='100%' />:null}
+    <div className="stream-container">
+      <iframe
+        className="stream-player"
+        src={`https://www.youtube-nocookie.com/embed/${yt_id}?autoplay=1`}
+        title="Movie Stream"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+        allowFullScreen
+      ></iframe>
     </div>
-  )
-}
+  );
+};
 
-export default StreamMovie
+export default StreamMovie;
